@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My HTML Blog Editor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      height: 100vh;
+    }
+    .sidebar {
+      background: #f4f4f4;
+      padding: 1rem;
+      border-right: 1px solid #ddd;
+    }
+    .sidebar h2 {
+      margin-top: 0;
+    }
+    .sidebar button {
+      display: block;
+      margin-bottom: 0.5rem;
+      width: 100%;
+      padding: 0.5rem;
+      border: none;
+      background: #ddd;
+      cursor: pointer;
+    }
+    .sidebar button:hover {
+      background: #ccc;
+    }
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .toolbar {
+      background: #fff;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #ddd;
+    }
+    .toolbar button {
+      margin-right: 0.5rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: #333;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .toolbar button:hover {
+      background: #000;
+    }
+    .editor-container {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      padding: 1rem;
+      gap: 1rem;
+      background: #fafafa;
+    }
+    input[type="text"] {
+      width: 100%;
+      font-size: 1.2rem;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      font-family: monospace;
+      font-size: 1rem;
+      padding: 1rem;
+    }
+    .preview {
+      background: #fff;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      overflow-y: auto;
+    }
+    .footer {
+      padding: 0.5rem;
+      border-top: 1px solid #ccc;
+      text-align: center;
+      background: #f1f1f1;
+    }
+    ul.blog-list {
+      list-style: none;
+      padding: 0;
+    }
+    ul.blog-list li {
+      cursor: pointer;
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+    }
+    ul.blog-list li:hover {
+      background: #eaeaea;
+    }
+    .viewer {
+      display: none;
+      padding: 3rem 1rem;
+      max-width: 750px;
+      margin: 0 auto;
+      font-family: 'Georgia', serif;
+      background: white;
+      color: #111;
+    }
+    .viewer h1 {
+      font-size: 2.8rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .viewer .meta {
+      color: #777;
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+    .viewer .content img {
+      max-width: 100%;
+      margin: 2rem 0;
+      border-radius: 8px;
+    }
+    .viewer .content p {
+      font-size: 1.125rem;
+      line-height: 1.8;
+      margin-bottom: 1.5rem;
+    }
+    .viewer .content strong {
+      font-weight: bold;
+    }
+    .back-button {
+      display: block;
+      margin: 3rem auto 0;
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      border: none;
+      background: #222;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>My Blogs</h2>
+    <button onclick="setView('published')">Published</button>
+    <button onclick="setView('draft')">Drafts</button>
+    <button onclick="setView('trash')">Trash</button>
+    <ul class="blog-list" id="blogList"></ul>
+  </div>
+  <div class="main">
+    <div class="toolbar">
+      <button onclick="newBlog()">New</button>
+      <button onclick="saveBlog()">Save</button>
+      <button onclick="deleteBlog()">Delete</button>
+      <button onclick="moveToTrash()">Trash</button>
+      <button onclick="restoreBlog()">Restore</button>
+    </div>
+    <div class="editor-container" id="editorContainer">
+      <div>
+        <input type="text" id="titleInput" placeholder="Blog Title..." />
+        <textarea id="editor" placeholder="Write your HTML here..."></textarea>
+      </div>
+      <div class="preview" id="preview"></div>
+    </div>
+    <div class="viewer" id="viewer">
+      <h1 id="viewTitle"></h1>
+      <div class="meta" id="viewMeta"></div>
+      <div class="content" id="viewContent"></div>
+      <button class="back-button" onclick="backToEditor()">Back to Editor</button>
+    </div>
+    <div class="footer">HTML Blog Editor &copy; 2025</div>
+  </div>
+  <script>
+    let blogs = JSON.parse(localStorage.getItem("blogs") || "[]");
+    let currentId = null;
+    let currentView = "published";
+
+    const editor = document.getElementById("editor");
+    const preview = document.getElementById("preview");
+    const blogList = document.getElementById("blogList");
+    const titleInput = document.getElementById("titleInput");
+    const viewer = document.getElementById("viewer");
+    const viewTitle = document.getElementById("viewTitle");
+    const viewContent = document.getElementById("viewContent");
+    const viewMeta = document.getElementById("viewMeta");
+    const editorContainer = document.getElementById("editorContainer");
+
+    editor.addEventListener("input", () => {
+      preview.innerHTML = editor.value;
+    });
+
+    function saveBlog() {
+      const content = editor.value;
+      const title = titleInput.value || "Untitled";
+      if (!content.trim()) return;
+
+      if (currentId === null) {
+        const newBlog = {
+          id: Date.now(),
+          title,
+          content,
+          status: "published",
+          date: new Date().toLocaleString()
+        };
+        blogs.push(newBlog);
+        currentId = newBlog.id;
+      } else {
+        const blog = blogs.find(b => b.id === currentId);
+        blog.content = content;
+        blog.title = title;
+        blog.status = "published";
+      }
+      updateLocalStorage();
+      renderList();
+    }
+
+    function newBlog() {
+      currentId = null;
+      editor.value = "";
+      titleInput.value = "";
+      preview.innerHTML = "";
+      viewer.style.display = "none";
+      editorContainer.style.display = "grid";
+    }
+
+    function deleteBlog() {
+      blogs = blogs.filter(b => b.id !== currentId);
+      updateLocalStorage();
+      newBlog();
+      renderList();
+    }
+
+    function moveToTrash() {
+      const blog = blogs.find(b => b.id === currentId);
+      if (blog) {
+        blog.status = "trash";
+        updateLocalStorage();
+        renderList();
+        newBlog();
+      }
+    }
+
+    function restoreBlog() {
+      const blog = blogs.find(b => b.id === currentId);
+      if (blog && blog.status === "trash") {
+        blog.status = "published";
+        updateLocalStorage();
+        renderList();
+      }
+    }
+
+    function setView(view) {
+      currentView = view;
+      renderList();
+      newBlog();
+    }
+
+    function selectBlog(id) {
+      const blog = blogs.find(b => b.id === id);
+      if (blog) {
+        currentId = id;
+        viewTitle.textContent = blog.title;
+        viewMeta.textContent = `Written on ${blog.date}`;
+        viewContent.innerHTML = blog.content;
+        editorContainer.style.display = "none";
+        viewer.style.display = "block";
+      }
+    }
+
+    function backToEditor() {
+      viewer.style.display = "none";
+      editorContainer.style.display = "grid";
+    }
+
+    function renderList() {
+      blogList.innerHTML = "";
+      blogs.filter(b => b.status === currentView).forEach(b => {
+        const li = document.createElement("li");
+        li.textContent = b.title;
+        li.onclick = () => selectBlog(b.id);
+        blogList.appendChild(li);
+      });
+    }
+
+    function updateLocalStorage() {
+      localStorage.setItem("blogs", JSON.stringify(blogs));
+    }
+
+    renderList();
+  </script>
+</body>
+</html>
